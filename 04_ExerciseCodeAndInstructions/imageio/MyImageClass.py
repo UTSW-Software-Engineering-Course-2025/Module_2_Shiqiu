@@ -49,7 +49,8 @@ class MyImgClass():
         :rtype: MyImgClass
         """
         ### TO IMPLEMENT ###
-        raise NotImplementedError('You need to implement this method!')
+        toReturn = MyImgClass(np.abs(self.arrImg - other.arrImg), intLabel = None)
+        return  toReturn
         
     
     def fPixelwiseSqDif(self, other):
@@ -61,8 +62,8 @@ class MyImgClass():
         :rtype: MyImgClass
         """
         ### TO IMPLEMENT ###
-        # Use the overloaded '-' from above
-        raise NotImplementedError('You need to implement this method!')
+        toReturn = MyImgClass((self-other).arrImg**2, intLabel = None)
+        return toReturn
     
     
     
@@ -75,7 +76,8 @@ class MyImgClass():
         :rtype: float
         """
         ### TO IMPLEMENT ###
-        raise NotImplementedError('You need to implement this method!')
+        MSE = np.mean(self.fPixelwiseSqDif(other).arrImg)
+        return MSE
 
     
     def fPlot(self, ax, show_ticks=False, add_colorbar=False, imshow_kwargs={}):
@@ -111,7 +113,10 @@ class MyImgClass():
         :rtype: MyImgClass
         """
         ### TO IMPLEMENT ###
-        raise NotImplementedError('You need to implement this method!')
+        img_stack = [c.arrImg for c in lMyImgClass]
+        mean_img = np.mean(img_stack, axis = 0)
+
+        return MyImgClass(mean_img, intLabel = None)
     
     @staticmethod
     def fComputeStdAcrossImages(lMyImgClass):
@@ -123,7 +128,10 @@ class MyImgClass():
         :rtype: MyImgClass
         """
         ### TO IMPLEMENT ###
-        raise NotImplementedError('You need to implement this method!')
+        img_stack = [c.arrImg for c in lMyImgClass]
+        std_img = np.std(img_stack, axis = 0)
+
+        return MyImgClass(std_img, intLabel = None)
         
 
     @staticmethod
@@ -139,7 +147,8 @@ class MyImgClass():
         :rtype: float
         """
         ### TO IMPLEMENT ###
-        raise NotImplementedError('You need to implement this method!')
+        mean_MSE = np.mean([img1.fMSE(img2) for img1, img2 in zip(lImg1, lImg2)])
+        return mean_MSE
 
 
     @staticmethod
