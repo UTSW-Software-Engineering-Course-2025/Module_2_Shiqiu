@@ -456,10 +456,10 @@ class VAE(tf.keras.Model):
         # HOWEVER, note that below there are no program comments. What a lazy SWE!
         # Since we need those to make our code maintainable, 
         # study what this is doing and add comments explaining what each line is doing.
-        z_mean, z_logvar = self.encoder(inputs, training=training)
-        z = sample_from_normal(z_mean, z_logvar)
-        recons = self.decoder(z, training=training)
-        return recons
+        z_mean, z_logvar = self.encoder(inputs, training=training) # input the original img through the encode to project it into a lower dimension space for sampling
+        z = sample_from_normal(z_mean, z_logvar) # resample the lower dimension representation from a normal z distribution
+        recons = self.decoder(z, training=training) # reconstruct the image that sampled from the normal distribution
+        return recons 
     
     @property
     def metrics(self):

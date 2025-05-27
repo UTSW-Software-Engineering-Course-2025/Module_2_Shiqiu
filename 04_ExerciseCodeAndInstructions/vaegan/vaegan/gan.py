@@ -220,11 +220,11 @@ class GAN(tf.keras.Model):
         # ===================================  
         # 
         # 1. Call base class constructor      
-
+        super().__init__(name=name, **kwargs)
         
         # 2. store the 4 necessary attributes provided to the constructor. 
         #    Use as your attribute names, the same names as in the constructor input arguments
-
+        
 
 
 
