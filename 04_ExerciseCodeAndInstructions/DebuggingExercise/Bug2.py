@@ -11,12 +11,14 @@ def build_new_dictionary_from_input(dIn):
     Returns:
         updated dictionary
     """
+    from copy import deepcopy
+    dOut = deepcopy(dIn)
     nTotal = 0
     for key in dIn.keys():
         nTotal += dIn[key]
     #Adding total to the dictionary
-    dIn['Total'] = nTotal
-    return dIn
+    dOut['Total'] = nTotal
+    return dOut
 
 dOuput = {}
 dInput = {'A':1,
@@ -35,3 +37,4 @@ if 'Total' in dInput.keys():
 #Do you see something strange here?
 #Hint: add dInput, dOuput to WATCH, place breakpoint at line #14, see what changes after 1 and 2 step over
 #Use ID() command to check if the 2 objects dInput and dOutput are the same
+print(id(dInput),id(dOuput))

@@ -6,7 +6,8 @@ def fReplaceText(strInput, strText, intStart, intStop):
     #copy the string
     strReturn = strInput[:]
     #update the section of the string with inputted text
-    strReturn[intStart:intStop] = strText
+    #strReturn[intStart:intStop] = strText
+    strReturn = strInput[:intStart] + strText + strInput[intStop:]
     return strReturn
 
 def fFindAndReplaceInStr(strInput, strOld, strNew):
@@ -15,8 +16,8 @@ def fFindAndReplaceInStr(strInput, strOld, strNew):
     """
     intLenOld = len(strOld)
     intStart = strInput.find(strOld)
-    fReplaceText(strInput, strNew, intStart, intStart+intLenOld)
-
+    replace = fReplaceText(strInput, strNew, intStart, intStart+intLenOld)
+    return replace
 
 #fix famous misquote
 print(fFindAndReplaceInStr("Luke, I am your father.", 'Luke', 'No'))
