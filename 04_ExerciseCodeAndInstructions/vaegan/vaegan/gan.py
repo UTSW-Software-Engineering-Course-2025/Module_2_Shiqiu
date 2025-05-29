@@ -364,6 +364,7 @@ class GAN(tf.keras.Model):
             # samples as the discriminator did. 
             #  To help you along, we give you this part 
             z = tf.random.normal(shape=(2 * n, self.n_latent_dims))
+            
             images_fake = self.generator(z, training=True)
 
 
@@ -562,10 +563,10 @@ class ConditionalGAN(GAN):
         
         # Categorical cross-entropy loss for discriminator classification
         #==>  complete this line of code         
-
+        self.cross_entropy_class = tf.keras.losses.CategoricalCrossentropy(name='crossentropy_class')
         # Classification accuracy 
         #==>  complete this line of code         
-     
+        self.metric_class = tf.keras.metrics.CategoricalAccuracy(name='class_accuracy')
         print(f"Loaded version: {__name__}")
 
 
@@ -573,8 +574,13 @@ class ConditionalGAN(GAN):
         # ToImplement Exercise6a_part2 ==
         # ===============================
         #==>  complete this method , roughly 5 to 7 lines of code
-        
-        return images_fake
+        x, c = inputs
+        n = tf.shape(x)[0]
+        z = tf.random.normal(shape=(n, self.n_latent_dims))
+        #c = self.generate_random_classes(n)
+        z = tf.concat([z, c], axis=-1)
+        images_fake = self.generator(z, training=training)
+        return images_fake, c
         
     @property
     def metrics(self):
@@ -594,17 +600,17 @@ class ConditionalGAN(GAN):
         class_random = tf.one_hot(class_random, depth=self.n_classes, dtype=tf.float32)
         return class_random
     
-    ##def train_step(self, data):
-        # """Defines a single training iteration, including the forward pass,
-        # computation of losses, backpropagation, and weight updates.
+    def train_step(self, data):
+        """Defines a single training iteration, including the forward pass,
+        computation of losses, backpropagation, and weight updates.
 
-        # Args:
-        #     data (tensor): Input images.
+        Args:
+            data (tensor): Input images.
 
-        # Returns:
-        #     dict: Loss values.
-        # """        
-        ##images_real, class_real = data[0]
+        Returns:
+            dict: Loss values.
+        """        
+        images_real, class_real = data[0]
 
         # ToImplement Exercise6a_part3 ==
         # ===============================        
@@ -614,73 +620,78 @@ class ConditionalGAN(GAN):
         # Step 1: Train the discriminator
 
         # Generate images from random latent vectors.
-
-
-
+        n = tf.shape(images_real)[0]
+        z = tf.random.normal(shape=(n, self.n_latent_dims))
+        class_fake = self.generate_random_classes(n)
+        z = tf.concat([z, class_fake], axis=-1)
+        images_fake = self.generator(z, training=False)
 
 
         # Create label vectors, 1 for real and 0 for fake images
-
-
+        labels_real = tf.ones((n, 1))
+        labels_fake = tf.zeros((n, 1))
 
         # Concatenate real and fake images 
-
-
-
-        ##with tf.GradientTape() as gt:
+        images_disc = tf.concat([images_real, images_fake], axis = 0)
+        labels_disc = tf.concat([labels_real, labels_fake], axis = 0)
+        #classes_disc = tf.concat([class_real, class_fake], axos = 0)
+        with tf.GradientTape() as gt:
             # Predict with the discriminator
-            
+            y_real, y_class = self.discriminator(images_disc, training=True)
             # Compute discriminator loss for distinguishing real/fake images
-
+            disc_loss = self.loss_bce(y_real, labels_disc)
             # Compute discriminator loss for predicting image class, for real images only
-
+            class_loss = self.cross_entropy_class(class_real, y_class[:n])
             # Add losses
-
+            total_disc_loss = disc_loss + class_loss
             
             # Compute classification metric
-
+            acc = self.metric_class(class_real, y_class[:n])
                                    
         # Compute the gradient of the lost wrt the discriminator weights
-
+        grad_disc = gt.gradient(total_disc_loss, self.discriminator.trainable_variables)
         
         # Apply the weight updates
-
+        self.optimizer_disc.apply_gradients(zip(grad_disc, self.discriminator.trainable_variables))
         
         # Step 2: Train the generator
                     
-        ##with tf.GradientTape() as gt2:
+        with tf.GradientTape() as gt2:
             # Generate images from random latent vectors. Generate twice as many
             # images as the batch size so that the generator sees as many
             # samples as the discriminator did. 
-
-
-
+            z_gen = tf.random.normal(shape=(2 * n, self.n_latent_dims))
+            class_fake_gen = self.generate_random_classes(2 * n)
+            z_gen = tf.concat([z_gen, class_fake_gen], axis=-1)
+            images_fake_gen = self.generator(z_gen, training=True)
 
             # Predict with the discriminator
-
+            labels_pred_gen, class_pred_gen = self.discriminator(images_fake_gen, training=False)
             
             # We want to the discriminator to think these images are real, so we
             # calculate the loss between these predictions and the "real image"
             # labels
-
+            labels_gen = tf.ones((2 * n, 1))
+            gen_loss = self.loss_bce(labels_gen, labels_pred_gen)
 
             # Compute loss between discriminator-predicted classes and the desired classes
-
+            class_loss = self.cross_entropy_class(class_pred_gen, class_fake_gen)
             # Add losses
-
+            total_gen_loss = gen_loss + class_loss
                         
         # Compute the gradient of the lost wrt the generator weights
-
+        grad_gen = gt2.gradient(total_gen_loss, self.generator.trainable_variables)
         
         # Apply the weight updates
+        self.optimizer_gen.apply_gradients(zip(grad_gen, self.generator.trainable_variables))
 
-        
         # Update the running means of the losses
-        
+        self.loss_gen_tracker.update_state(total_gen_loss)
+        self.loss_disc_tracker.update_state(total_disc_loss)
         # Get the current values of these running means as a dict. These values
         # will be printed in the progress bar.
-
-        ## return dictLosses
+        dictLosses = {loss.name: loss.result() for loss in self.metrics}
+        return dictLosses
 
     def get_config(self):
         # To allow saving and loading of a custom model, we need to implement a

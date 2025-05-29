@@ -596,7 +596,7 @@ class ConditionalVAE(VAE):
                          **kwargs)
 
         print(f"Loaded version: {__name__}")
- 
+
 
     def make_conditional_input(self, images, labels):
         """Convert one-hot label vectors into a 3D tensor and concatenate to the image.
@@ -614,15 +614,18 @@ class ConditionalVAE(VAE):
         # this one is a bit tricky so we will develop it together.        
 
         # 1. first we need to get the number of samples, height and width of the images 
-        
+        n = tf.shape(images)[0]
+        h = tf.shape(images)[1]
+        w = tf.shape(images)[2]
+
         # 2. next build a tensor containing the image labels for the current minibatch, which is stored in the variable, labels.
-
-
+        labels_ = tf.reshape(labels, [n, 1, 1, -1]) 
+        labels_ = tf.tile(labels_, [1, h, w, 1]) 
         
         # 3. Finally since the tensors are the same dimension along the last axis, we can concatenate them together. 
 
         # ========================
-
+        imagesConcatenatedWithPerPixelLabelVectors = tf.concat([images, labels_], axis = -1)
 
         return imagesConcatenatedWithPerPixelLabelVectors
     
@@ -686,41 +689,55 @@ class ConditionalVAE(VAE):
         # 1a. Expand the class labels into 3D tensors and concatenate to the channel 
         # dimension of the images by calling your make_conditional_input. 
         # Store the result in variable encoder_inputs
-        
+        encoder_inputs = self.make_conditional_input(images_real, class_real)
         
         # 1b. Tell tensorflow to build a computational graph for the forward pass, so that gradients can be computed for us.
         #    Therefore use tf.GradientTape(persistent=True) to start the beginning of a python runtime context using the "with" keyword.
         #    Note the argument persistent=True is required to compute multiple gradients from a single GradientTape        
         #    persistent=True is required to compute multiple gradients from a single GradientTape
-            
+        with tf.GradientTape(persistent=True) as tape:
             # Follow steps 2..7 from the VAE's train_step() however there are two parts *** that are different for the ConditionalVAE:            
             # Use encoder to predict probabilistic latent representations 
-            
+            z_mean, z_logvar = self.encoder(encoder_inputs, training=True)
             # Sample a point from the latent distributions. 
-            
+            z = sample_from_normal(z_mean, z_logvar)
             # *** Step 3b: (new step) You will need to concatenate labels to latent representations
-
+            d = tf.concat([z, class_real], axis=-1)
             # *** Step 4: Use decoder to reconstruct image from the concatenated result
-
+            recons = self.decoder(d, training=True)
             # Compute KL divergence loss between latent representations and the prior
-            
-            # Compute reconstruction loss
+            kl_loss = kl_divergence(z_mean, z_logvar)
 
+            # Compute reconstruction loss
+            recon_loss_pixel = self.loss_recon(images_real, recons)   # uncomment this line
+            # Recon loss is computed per pixel. Sum over the pixels and then
+            # average across samples.
+            recon_loss_sample = tf.reduce_sum(recon_loss_pixel, axis=(1, 2))  # uncomment this line
+            recon_loss = tf.reduce_mean(recon_loss_sample) 
             # Recon loss is computed per pixel. Sum over the pixels and then
             # average across samples.
             
             # Sum the loss terms
-            
+            total_loss = recon_loss + self.kl_loss_weight * kl_loss 
 
                            
         # Follow steps 8-10 from the VAE.train_step()
         # 8. Compute the gradients for each loss wrt their respectively model weights
+        grads_enc = tape.gradient(total_loss, self.encoder.trainable_variables)
+        grads_dec = tape.gradient(total_loss, self.decoder.trainable_variables)
         
         # 9. Apply the gradient descent steps to each submodel. The optimizer
         # attribute is created when model.compile(optimizer) is called by the
         # user.
+        self.optimizer.apply_gradients(zip(grads_enc, self.encoder.trainable_variables))
+        self.optimizer.apply_gradients(zip(grads_dec, self.decoder.trainable_variables))
+    
+        # [ 10. ] Update the running means of the losses
+        self.loss_recon_tracker.update_state(recon_loss)
+        self.loss_kl_tracker.update_state(kl_loss)
+        self.loss_total_tracker.update_state(total_loss)
         
-        # 10. Update the running means of the losses
+
         
         
         # [Given] Get the current values of these running means as a dict. These values
